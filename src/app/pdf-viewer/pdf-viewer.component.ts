@@ -52,6 +52,7 @@ export class PdfViewerComponent implements OnChanges, OnInit, OnDestroy {
   @Output('error') onError = new EventEmitter<any>();
   @Output('on-progress') onProgress = new EventEmitter<PDFProgressData>();
   @Output() pageChange: EventEmitter<number> = new EventEmitter<number>(true);
+  @Output('annotation-list') annotationList: EventEmitter<Array<Object>> = new EventEmitter<Array<Object>>();
 
   static getLinkTarget(type: string) {
     switch (type) {
@@ -409,9 +410,11 @@ export class PdfViewerComponent implements OnChanges, OnInit, OnDestroy {
         PdfViewerComponent.setExternalLinkTarget(this._externalLinkTarget);
         pdfOptions.textLayerFactory = new PDFJSViewer.DefaultTextLayerFactory();
         pdfOptions.annotationLayerFactory = new PDFJSViewer.DefaultAnnotationLayerFactory();
+        pdfOptions.renderInteractiveForms = true;
       }
 
       const pdfPageView = new PDFJSViewer.PDFPageView(pdfOptions);
+      const aList: Array<Object> = [];
 
       if (this._renderText) {
         this.pdfLinkService.setViewer(pdfPageView);
@@ -421,8 +424,24 @@ export class PdfViewerComponent implements OnChanges, OnInit, OnDestroy {
         pdfPageView.rotation = this._rotation;
       }
 
-      pdfPageView.setPdfPage(page);
-      return pdfPageView.draw();
+      page.getAnnotations().then((annotations: any) => {
+        annotations.forEach(function (vo) {
+          aList.push({
+            fieldName: vo.fieldName,
+            id: vo.id
+          });
+        });
+
+        this.annotationList.emit(aList);
+        pdfPageView.setPdfPage(page);
+
+        if (aList.length > 0) {
+          return pdfPageView.draw();
+        } else {
+          PdfViewerComponent.removeAllChildNodes(container);
+          return null;
+        }
+      });
     });
   }
 
